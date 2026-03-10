@@ -5,45 +5,52 @@ from mcstatus import JavaServer
 
 load_dotenv()
 
-TOKEN=os.getenv("DISCORD_TOKEN")
-CHANNEL=int(os.getenv("CHANNEL_ID"))
+TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL = int(os.getenv("CHANNEL_ID"))
 
-intents=discord.Intents.default()
-intents.message_content=True
+intents = discord.Intents.default()
+intents.message_content = True
 
-bot=discord.Client(intents=intents)
+class MyBot(discord.Client):
+    def __init__(self):
+        super().__init__(intents=intents)
+        self.tree = discord.app_commands.CommandTree(self)
 
-tree=discord.app_commands.CommandTree(bot)
+    async def setup_hook(self):
+        await self.tree.sync()
+
+bot = MyBot()
 
 @bot.event
 async def on_ready():
-    await tree.sync()
-    print("Discord bot ready")
+    print(f"Logged in as {bot.user}")
 
-@tree.command(name="status",description="Check Minecraft server status")
-async def status(interaction:discord.Interaction):
+# /status command
+@bot.tree.command(name="status", description="Check Minecraft server status")
+async def status(interaction: discord.Interaction):
 
     try:
-        server=JavaServer.lookup("play.example.com:25565")
-        status=server.status()
+        server = JavaServer.lookup("play.example.com:25565")
+        status = server.status()
 
         await interaction.response.send_message(
-        f"Server Online\nPlayers {status.players.online}/{status.players.max}"
+            f"🟢 Server Online\nPlayers: {status.players.online}/{status.players.max}"
         )
 
     except:
-        await interaction.response.send_message("Server Offline")
+        await interaction.response.send_message("🔴 Server Offline")
 
+# Discord → Minecraft chat
 @bot.event
 async def on_message(message):
 
     if message.author.bot:
         return
 
-    if message.channel.id!=CHANNEL:
+    if message.channel.id != CHANNEL:
         return
 
-    with open("dc_chat.txt","w") as f:
+    with open("dc_chat.txt", "w") as f:
         f.write(message.content)
 
 bot.run(TOKEN)
