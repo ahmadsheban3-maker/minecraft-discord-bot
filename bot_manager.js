@@ -1,10 +1,9 @@
 const mineflayer = require("mineflayer");
 const fs = require("fs");
 
-const server = JSON.parse(fs.readFileSync("servers.json"));
 const botsConfig = JSON.parse(fs.readFileSync("bots.json"));
 
-function startBot(username) {
+function startBot(username, server) {
   const bot = mineflayer.createBot({
     host: server.host,
     port: server.port,
@@ -12,7 +11,9 @@ function startBot(username) {
     version: "1.21.11"
   });
 
-  bot.on("login", () => console.log(`${username} joined ${server.host}:${server.port}`));
+  bot.on("login", () =>
+    console.log(`${username} joined ${server.name} (${server.host}:${server.port})`)
+  );
 
   // Anti-AFK jump
   bot.on("spawn", () => {
@@ -22,13 +23,13 @@ function startBot(username) {
     }, 30000);
   });
 
-  // Minecraft -> Discord chat bridge
+  // Minecraft → Discord chat
   bot.on("chat", (username, message) => {
     if (username === bot.username) return;
-    fs.writeFileSync("mc_chat.txt", `[MC] ${username}: ${message}`);
+    fs.writeFileSync("mc_chat.txt", `[MC][${server.name}] ${username}: ${message}`);
   });
 
-  // Discord -> Minecraft chat
+  // Discord → Minecraft chat
   setInterval(() => {
     if (fs.existsSync("dc_chat.txt")) {
       const msg = fs.readFileSync("dc_chat.txt", "utf-8");
@@ -39,12 +40,12 @@ function startBot(username) {
 
   // Auto reconnect
   bot.on("end", () => {
-    console.log(`${username} disconnected, reconnecting...`);
-    setTimeout(() => startBot(username), 5000);
+    console.log(`${username} disconnected from ${server.name}, reconnecting...`);
+    setTimeout(() => startBot(username, server), 5000);
   });
 
   bot.on("error", (err) => console.log(`${username} error: ${err.message}`));
 }
 
-// Start all bots
-botsConfig.bots.forEach((b) => startBot(b));
+// Export startBot function
+module.exports = { startBot, botsConfig };
