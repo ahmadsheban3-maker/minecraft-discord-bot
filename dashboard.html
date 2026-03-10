@@ -1,0 +1,30 @@
+<html>
+<head>
+<title>Minecraft Bot Dashboard</title>
+<script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+<h1>Minecraft Bot Dashboard</h1>
+
+<p>Bots Online: <span id="bots"></span></p>
+<p>Ping: <span id="ping"></span></p>
+<p>TPS: <span id="tps"></span></p>
+
+<script>
+
+const socket=io()
+
+socket.on("stats",(data)=>{
+
+document.getElementById("bots").innerText=data.bots
+document.getElementById("ping").innerText=data.ping
+document.getElementById("tps").innerText=data.tps
+
+})
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "mc-discord-bot-system",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bash start.sh"
+  },
+  "dependencies": {
+    "mineflayer": "^4.20.1",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
