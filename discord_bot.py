@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from mcstatus import JavaServer
 
 load_dotenv()
-
 TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 intents = discord.Intents.default()
 
@@ -24,11 +24,9 @@ bot = DiscordController()
 
 @bot.event
 async def on_ready():
-    print(f"Bot logged in as {bot.user}")
+    print(f"Logged in as {bot.user}")
 
-# ---------------------------
-# START BOTS
-# ---------------------------
+# /startbots
 @bot.tree.command(name="startbots", description="Start Minecraft bots")
 async def startbots(interaction: discord.Interaction):
     if bot.mc_process:
@@ -37,9 +35,7 @@ async def startbots(interaction: discord.Interaction):
     bot.mc_process = subprocess.Popen(["node", "bot_manager.js"])
     await interaction.response.send_message("✅ Minecraft bots started")
 
-# ---------------------------
-# STOP BOTS
-# ---------------------------
+# /stopbots
 @bot.tree.command(name="stopbots", description="Stop Minecraft bots")
 async def stopbots(interaction: discord.Interaction):
     if not bot.mc_process:
@@ -49,9 +45,7 @@ async def stopbots(interaction: discord.Interaction):
     bot.mc_process = None
     await interaction.response.send_message("🛑 Minecraft bots stopped")
 
-# ---------------------------
-# RESTART
-# ---------------------------
+# /restart
 @bot.tree.command(name="restart", description="Restart Minecraft bots")
 async def restart(interaction: discord.Interaction):
     if bot.mc_process:
@@ -59,9 +53,7 @@ async def restart(interaction: discord.Interaction):
     bot.mc_process = subprocess.Popen(["node", "bot_manager.js"])
     await interaction.response.send_message("🔄 Bots restarted")
 
-# ---------------------------
-# LIST BOTS
-# ---------------------------
+# /bots
 @bot.tree.command(name="bots", description="Show configured bots")
 async def bots(interaction: discord.Interaction):
     with open("bots.json") as f:
@@ -69,19 +61,14 @@ async def bots(interaction: discord.Interaction):
     names = "\n".join(data["bots"])
     await interaction.response.send_message(f"🤖 Configured Bots:\n```\n{names}\n```")
 
-# ---------------------------
-# SHOW SERVERS
-# ---------------------------
+# /servers
 @bot.tree.command(name="servers", description="Show Minecraft servers")
 async def servers(interaction: discord.Interaction):
     with open("servers.json") as f:
         data = json.load(f)
-    msg = f"{data['host']}:{data['port']}"
-    await interaction.response.send_message(f"🌍 Minecraft Server:\n```\n{msg}\n```")
+    await interaction.response.send_message(f"🌍 Minecraft Server:\n```\n{data['host']}:{data['port']}\n```")
 
-# ---------------------------
-# PING SERVER
-# ---------------------------
+# /ping
 @bot.tree.command(name="ping", description="Check server latency")
 async def ping(interaction: discord.Interaction):
     try:
@@ -95,10 +82,8 @@ async def ping(interaction: discord.Interaction):
     except:
         await interaction.response.send_message("❌ Server offline")
 
-# ---------------------------
-# SERVER STATUS
-# ---------------------------
-@bot.tree.command(name="status", description="Check Minecraft server status")
+# /status
+@bot.tree.command(name="status", description="Check server status")
 async def status(interaction: discord.Interaction):
     try:
         with open("servers.json") as f:
