@@ -1,10 +1,5 @@
 #!/bin/bash
-
-echo "Starting Minecraft Bots"
+echo "Starting Minecraft bots..."
 node bot_manager.js &
-
-echo "Starting Dashboard"
-node dashboard.js &
-
-echo "Starting Discord Bot"
+echo "Starting Discord bot..."
 python discord_bot.py
