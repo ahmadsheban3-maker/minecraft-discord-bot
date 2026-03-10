@@ -1,55 +1,55 @@
-const mineflayer = require("mineflayer")
-const fs = require("fs")
+const mineflayer = require("mineflayer");
+const fs = require("fs");
 
-const server = JSON.parse(fs.readFileSync("servers.json"))
-const botsConfig = JSON.parse(fs.readFileSync("bots.json"))
+const servers = JSON.parse(fs.readFileSync("servers.json"));
+const botsConfig = JSON.parse(fs.readFileSync("bots.json"));
 
-function startBot(username){
+function startBot(username) {
+    const server = servers;
 
-const bot = mineflayer.createBot({
-host: server.host,
-port: server.port,
-username: username
-})
+    const bot = mineflayer.createBot({
+        host: server.host,
+        port: server.port,
+        username: username
+    });
 
-bot.on("login", ()=>{
-console.log(username + " joined server")
-})
+    bot.on("login", () => {
+        console.log(`${username} joined server ${server.host}:${server.port}`);
+    });
 
-bot.on("spawn", ()=>{
+    // Anti-AFK: jumps every 30 seconds
+    bot.on("spawn", () => {
+        setInterval(() => {
+            bot.setControlState("jump", true);
+            setTimeout(() => bot.setControlState("jump", false), 500);
+        }, 30000);
+    });
 
-setInterval(()=>{
+    // Minecraft → Discord chat bridge
+    bot.on("chat", (username, message) => {
+        if (username === bot.username) return;
+        fs.writeFileSync("mc_chat.txt", `[MC] ${username}: ${message}`);
+    });
 
-bot.setControlState("jump", true)
+    // Discord → Minecraft chat
+    setInterval(() => {
+        if (fs.existsSync("dc_chat.txt")) {
+            const msg = fs.readFileSync("dc_chat.txt", "utf-8");
+            bot.chat(msg);
+            fs.unlinkSync("dc_chat.txt");
+        }
+    }, 2000);
 
-setTimeout(()=>{
+    // Auto reconnect
+    bot.on("end", () => {
+        console.log(`${username} disconnected, reconnecting...`);
+        setTimeout(() => startBot(username), 5000);
+    });
 
-bot.setControlState("jump", false)
-
-},500)
-
-},30000)
-
-})
-
-bot.on("chat",(user,msg)=>{
-
-if(user===bot.username) return
-
-fs.writeFileSync("mc_chat.txt",user+": "+msg)
-
-})
-
-bot.on("end",()=>{
-
-console.log(username+" reconnecting")
-
-setTimeout(()=>startBot(username),5000)
-
-})
-
-bot.on("error",console.log)
-
+    bot.on("error", (err) => {
+        console.log(`${username} error: `, err.message);
+    });
 }
 
-botsConfig.bots.forEach(startBot)
+// Start all bots in bots.json
+botsConfig.bots.forEach((b) => startBot(b));
