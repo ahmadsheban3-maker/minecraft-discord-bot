@@ -4,110 +4,115 @@ import json
 import os
 from dotenv import load_dotenv
 from mcstatus import JavaServer
+from bot_manager import startBot, botsConfig
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 intents = discord.Intents.default()
 
-class DiscordController(discord.Client):
-    def __init__(self):
-        super().__init__(intents=intents)
-        self.tree = discord.app_commands.CommandTree(self)
-        self.mc_process = None
+bot = discord.Client(intents=intents)
+tree = discord.app_commands.CommandTree(bot)
 
-    async def setup_hook(self):
-        await self.tree.sync()
+# Load servers
+with open("servers.json") as f:
+    servers = json.load(f)
 
-bot = DiscordController()
-
+# Ready event
 @bot.event
 async def on_ready():
+    await tree.sync()
     print(f"Logged in as {bot.user}")
 
 # ---------------------------
-# /join (start bots)
+# /join (server dropdown)
 # ---------------------------
-@bot.tree.command(name="join", description="Make Minecraft bots join the server")
+class ServerSelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label=s["name"], description=f"{s['host']}:{s['port']}", value=str(i))
+            for i, s in enumerate(servers)
+        ]
+        super().__init__(placeholder="Select a server", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        index = int(self.values[0])
+        server = servers[index]
+        for username in [b for b in botsConfig["bots"]]:
+            startBot(username, server)
+        await interaction.response.send_message(f"✅ Bots joining **{server['name']}**!")
+
+class ServerDropdown(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        self.add_item(ServerSelect())
+
+@tree.command(name="join", description="Make bots join a server")
 async def join(interaction: discord.Interaction):
-    if bot.mc_process:
-        await interaction.response.send_message("⚠ Bots are already on the server")
-        return
-    bot.mc_process = subprocess.Popen(["node", "bot_manager.js"])
-    await interaction.response.send_message("✅ Bots joined the server")
+    view = ServerDropdown()
+    await interaction.response.send_message("Select a server for your bots:", view=view)
 
 # ---------------------------
-# /leave (stop bots)
+# /leave (stop all bots)
 # ---------------------------
-@bot.tree.command(name="leave", description="Make Minecraft bots leave the server")
+@tree.command(name="leave", description="Make all bots leave the server")
 async def leave(interaction: discord.Interaction):
-    if not bot.mc_process:
-        await interaction.response.send_message("⚠ Bots are not on the server")
-        return
-    bot.mc_process.kill()
-    bot.mc_process = None
-    await interaction.response.send_message("🛑 Bots left the server")
+    # Kill the bot_manager.js process if it exists
+    # (Optional: you can track running bots to stop them individually)
+    subprocess.Popen(["pkill", "-f", "node"])  # works on Linux/Railway
+    await interaction.response.send_message("🛑 Bots left all servers")
 
 # ---------------------------
 # /restart
 # ---------------------------
-@bot.tree.command(name="restart", description="Restart Minecraft bots")
+@tree.command(name="restart", description="Restart bots")
 async def restart(interaction: discord.Interaction):
-    if bot.mc_process:
-        bot.mc_process.kill()
-    bot.mc_process = subprocess.Popen(["node", "bot_manager.js"])
-    await interaction.response.send_message("🔄 Bots restarted")
+    subprocess.Popen(["pkill", "-f", "node"])
+    await interaction.response.send_message("🔄 Bots restarted, use /join to select server")
 
 # ---------------------------
 # /bots
 # ---------------------------
-@bot.tree.command(name="bots", description="Show configured bots")
+@tree.command(name="bots", description="Show configured bots")
 async def bots(interaction: discord.Interaction):
-    with open("bots.json") as f:
-        data = json.load(f)
-    names = "\n".join(data["bots"])
-    await interaction.response.send_message(f"🤖 Configured Bots:\n```\n{names}\n```")
+    await interaction.response.send_message("🤖 Configured Bots:\n" + "\n".join(botsConfig["bots"]))
 
 # ---------------------------
 # /servers
 # ---------------------------
-@bot.tree.command(name="servers", description="Show Minecraft servers")
-async def servers(interaction: discord.Interaction):
-    with open("servers.json") as f:
-        data = json.load(f)
-    await interaction.response.send_message(f"🌍 Minecraft Server:\n```\n{data['host']}:{data['port']}\n```")
+@tree.command(name="servers", description="Show available servers")
+async def servers_cmd(interaction: discord.Interaction):
+    msg = "\n".join([f"{s['name']}: {s['host']}:{s['port']}" for s in servers])
+    await interaction.response.send_message(f"🌍 Available Servers:\n{msg}")
 
 # ---------------------------
 # /ping
 # ---------------------------
-@bot.tree.command(name="ping", description="Check server latency")
+@tree.command(name="ping", description="Check server latency")
 async def ping(interaction: discord.Interaction):
-    try:
-        with open("servers.json") as f:
-            data = json.load(f)
-        server = JavaServer.lookup(f"{data['host']}:{data['port']}")
-        status = server.status()
-        await interaction.response.send_message(
-            f"🏓 Ping: {round(status.latency)} ms | Players: {status.players.online}/{status.players.max}"
-        )
-    except:
-        await interaction.response.send_message("❌ Server offline")
+    msg_list = []
+    for s in servers:
+        try:
+            server = JavaServer.lookup(f"{s['host']}:{s['port']}")
+            status = server.status()
+            msg_list.append(f"{s['name']}: 🏓 {round(status.latency)}ms | Players: {status.players.online}/{status.players.max}")
+        except:
+            msg_list.append(f"{s['name']}: ❌ offline")
+    await interaction.response.send_message("\n".join(msg_list))
 
 # ---------------------------
 # /status
 # ---------------------------
-@bot.tree.command(name="status", description="Check server status")
+@tree.command(name="status", description="Check server status")
 async def status(interaction: discord.Interaction):
-    try:
-        with open("servers.json") as f:
-            data = json.load(f)
-        server = JavaServer.lookup(f"{data['host']}:{data['port']}")
-        status = server.status()
-        await interaction.response.send_message(
-            f"🟢 Server Online | Version: {status.version.name}\nPlayers: {status.players.online}/{status.players.max}"
-        )
-    except:
-        await interaction.response.send_message("🔴 Server Offline")
+    msg_list = []
+    for s in servers:
+        try:
+            server = JavaServer.lookup(f"{s['host']}:{s['port']}")
+            status = server.status()
+            msg_list.append(f"{s['name']}: 🟢 Online | {status.players.online}/{status.players.max} | Version: {status.version.name}")
+        except:
+            msg_list.append(f"{s['name']}: 🔴 Offline")
+    await interaction.response.send_message("\n".join(msg_list))
 
 bot.run(TOKEN)
