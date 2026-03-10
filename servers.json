@@ -1,5 +1,5 @@
-{
-  "host": "mafiauniverse2026.aternos.me",
-  "port": 57589
-}
-
+[
+  { "name": "Survival", "host": "mafiauniverse2026.aternos.me", "port": 57589 },
+  { "name": "Creative", "host": "play.creativeserver.com", "port": 25566 },
+  { "name": "Adventure", "host": "play.adventureserver.com", "port": 25565 }
+]
